@@ -8,6 +8,9 @@ import time
 from datetime import datetime
 from multiprocessing import Pool, cpu_count
 from functools import partial
+import random
+from cvat_sdk.models import PatchedTaskWriteRequest
+
 
 # Logging setup
 if not os.path.exists('logs'):
@@ -26,9 +29,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class CVATTaskCreator:
-    def __init__(self, csv_path: str):
+    def __init__(self, csv_path: str, assignee_email: str = "ak294208@gmail.com"):
         self.csv_path = csv_path
-        
+        self.assignee_email = assignee_email
+
     def setup_client(self):
         client = make_client(
             host=os.getenv('CVAT_HOST', 'https://app.cvat.ai/'),
@@ -48,7 +52,7 @@ class CVATTaskCreator:
             
             labels = self.parse_labels(row['Labels'])
             labels.append({
-                'name': 'Descriptions',
+                'name': 'description',
                 'attributes': [
                     {
                         'name': 'Title',
@@ -58,7 +62,7 @@ class CVATTaskCreator:
                         'required': True
                     },
                     {
-                        'name': 'English_Image_Description',
+                        'name': 'Image_Description',
                         'mutable': True,
                         'input_type': 'text',
                         'values': [''],
@@ -76,9 +80,10 @@ class CVATTaskCreator:
             
             task_spec = {
                 'name': f"Segmentation_{row['ID']}",
-                'labels': labels
-            }
+                'labels': labels,
+            }           
             
+            # Create the task with the assignee already set
             task = client.tasks.create_from_data(
                 spec=task_spec,
                 resource_type=ResourceType.REMOTE,
@@ -86,7 +91,10 @@ class CVATTaskCreator:
             )
             
             logger.info(f"Created task {task.id} for image {row['ID']}")
-            time.sleep(0.5)  # Reduced delay since we're running in parallel
+
+            # Sleep a bit to avoid overwhelming the API
+            time.sleep(1)
+            
             return {'success': True, 'id': row['ID'], 'task_id': task.id}
             
         except Exception as e:
@@ -132,8 +140,9 @@ class CVATTaskCreator:
             raise
 
 def main():
-    csv_path = 'Guru_shot_25K_with_labels_final.csv'
-    creator = CVATTaskCreator(csv_path)
+    csv_path = 'vega-pipeline-external-batch-01.csv'
+    assignee_email = "ak294208@gmail.com"  # Replace with the annotator's email
+    creator = CVATTaskCreator(csv_path, assignee_email)
     creator.run()
 
 if __name__ == "__main__":

@@ -27,7 +27,7 @@ ENV/
 logs/
 *.log
 .env
-*.csv
+
 
 # OS specific
 .DS_Store
