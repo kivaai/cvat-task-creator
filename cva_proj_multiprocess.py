@@ -10,6 +10,7 @@ from multiprocessing import Pool, cpu_count
 from functools import partial
 import random
 from cvat_sdk.models import PatchedTaskWriteRequest
+import csv
 
 
 # Logging setup
@@ -92,6 +93,8 @@ class CVATTaskCreator:
             
             logger.info(f"Created task {task.id} for image {row['ID']}")
 
+            # log the task in the csv file
+
             # Sleep a bit to avoid overwhelming the API
             time.sleep(1)
             
@@ -127,6 +130,19 @@ class CVATTaskCreator:
             
             logger.info(f"Task creation completed. Successfully created: {len(successes)}, Failed: {len(failures)}")
             
+            # Save successful task details to a CSV file
+            if successes:
+                success_csv = f'logs/successes_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+                with open(success_csv, 'w', newline='') as f:
+                    writer = csv.DictWriter(f, fieldnames=['Task ID', 'Task URL'])
+                    writer.writeheader()
+                    for success in successes:
+                        writer.writerow({
+                            'Task ID': success['task_id'],
+                            'Task URL': f"https://app.cvat.ai/tasks/{success['task_id']}"
+                        })
+                logger.info(f"Successful task details written to {success_csv}")
+            
             # Log failures to a separate file
             if failures:
                 failure_log = f'logs/failures_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
@@ -140,7 +156,7 @@ class CVATTaskCreator:
             raise
 
 def main():
-    csv_path = 'vega-pipeline-external-batch-01.csv'
+    csv_path = 'external_batch_02_mini.csv'
     assignee_email = "ak294208@gmail.com"  # Replace with the annotator's email
     creator = CVATTaskCreator(csv_path, assignee_email)
     creator.run()
